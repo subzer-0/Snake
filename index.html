@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #1e1e1e;
+            color: white;
+            overflow: hidden;
+            flex-direction: column;
+        }
+        h1 {
+            margin-bottom: 10px;
+        }
+        #game-container {
+            position: relative;
+            width: 80vmin;
+            height: 80vmin;
+            background-color: #333;
+            border: 5px solid #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+        .snake {
+            position: absolute;
+            width: 2.5%;
+            height: 2.5%;
+            background-color: lime;
+            border-radius: 20%;
+        }
+        .food {
+            position: absolute;
+            width: 2.5%;
+            height: 2.5%;
+            background-color: red;
+            border-radius: 50%;
+        }
+        .obstacle {
+            position: absolute;
+            width: 2.5%;
+            height: 2.5%;
+            background-color: #8B4513; /* SaddleBrown */
+        }
+        #message {
+            position: absolute;
+            font-size: 2em;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Snake Game</h1>
+    <div id="game-container">
+        <div id="message">Press Space to Start</div>
+        <div id="score" style="position: absolute; top: 10px; left: 10px; font-size: 1.5em;">Score: 0</div>
+    </div>
+
+    <script>
+        const gameContainer = document.getElementById("game-container");
+        const message = document.getElementById("message");
+        const scoreEl = document.getElementById("score");
+        const gridSize = 40; // Grid of 40x40
+        const tileSize = gameContainer.clientWidth / gridSize;
+        let snake = [{ x: 20, y: 20 }];
+        let direction = null;
+        let food = null;
+        let obstacles = [];
+        let level = 1;
+        let score = 0;
+        let gameInterval = null;
+        let isGameRunning = false;
+
+        const levels = [
+            [], // Level 1: No obstacles
+            [ // Level 2
+                { x: 10, y: 10 }, { x: 10, y: 11 }, { x: 10, y: 12 },
+                { x: 30, y: 30 }, { x: 30, y: 31 }, { x: 30, y: 32 }
+            ],
+            [ // Level 3
+                { x: 5, y: 5 }, { x: 6, y: 5 }, { x: 7, y: 5 },
+                { x: 35, y: 5 }, { x: 36, y: 5 }, { x: 37, y: 5 },
+                { x: 5, y: 35 }, { x: 6, y: 35 }, { x: 7, y: 35 },
+                { x: 35, y: 35 }, { x: 36, y: 35 }, { x: 37, y: 35 }
+            ]
+        ];
+
+        function generateObstacles() {
+            obstacles = levels[level - 1] || [];
+        }
+
+        function randomDirection() {
+            const directions = ["up", "down", "left", "right"];
+            return directions[Math.floor(Math.random() * 4)];
+        }
+
+        function generateFood() {
+            do {
+                food = {
+                    x: Math.floor(Math.random() * gridSize),
+                    y: Math.floor(Math.random() * gridSize)
+                };
+            } while (snake.some(s => s.x === food.x && s.y === food.y) || obstacles.some(o => o.x === food.x && o.y === food.y));
+        }
+
+        function draw() {
+            // Remove only snake, food and obstacle elements, keeping the message element
+            Array.from(gameContainer.getElementsByClassName("snake")).forEach(el => el.remove());
+            Array.from(gameContainer.getElementsByClassName("food")).forEach(el => el.remove());
+            Array.from(gameContainer.getElementsByClassName("obstacle")).forEach(el => el.remove());
+
+            snake.forEach((segment, index) => {
+                const segmentEl = document.createElement("div");
+                segmentEl.classList.add("snake");
+                segmentEl.style.left = segment.x * tileSize + "px";
+                segmentEl.style.top = segment.y * tileSize + "px";
+                if (index === 0) segmentEl.style.backgroundColor = "lightgreen"; // Head color
+                gameContainer.appendChild(segmentEl);
+            });
+
+            const foodEl = document.createElement("div");
+            foodEl.classList.add("food");
+            foodEl.style.left = food.x * tileSize + "px";
+            foodEl.style.top = food.y * tileSize + "px";
+            gameContainer.appendChild(foodEl);
+
+            obstacles.forEach(obstacle => {
+                const obstacleEl = document.createElement("div");
+                obstacleEl.classList.add("obstacle");
+                obstacleEl.style.left = obstacle.x * tileSize + "px";
+                obstacleEl.style.top = obstacle.y * tileSize + "px";
+                gameContainer.appendChild(obstacleEl);
+            });
+        }
+
+        function move() {
+            if (!direction) return;
+
+            const head = { ...snake[0] };
+            if (direction === "up") head.y--;
+            if (direction === "down") head.y++;
+            if (direction === "left") head.x--;
+            if (direction === "right") head.x++;
+
+            // Check collision with walls, itself, or obstacles
+            if (head.x < 0 || head.x >= gridSize || head.y < 0 || head.y >= gridSize ||
+                snake.some(s => s.x === head.x && s.y === head.y) ||
+                obstacles.some(o => o.x === head.x && o.y === head.y)) {
+                endGame();
+                return;
+            }
+
+            // Check if food is eaten
+            if (head.x === food.x && head.y === food.y) {
+                snake.unshift(head);
+                score++;
+                scoreEl.innerText = "Score: " + score;
+                if (score % 5 === 0 && level < levels.length) {
+                    level++;
+                    generateObstacles();
+                }
+                generateFood();
+            } else {
+                snake.unshift(head);
+                snake.pop();
+            }
+
+            draw();
+        }
+
+        function startGame() {
+            if (isGameRunning) return;
+            isGameRunning = true;
+            message.style.display = "none";
+            snake = [{ x: 20, y: 20 }];
+            direction = randomDirection();
+            score = 0;
+            scoreEl.innerText = "Score: 0";
+            level = 1;
+            generateObstacles();
+            generateFood();
+            gameInterval = setInterval(move, 100);
+        }
+
+        function endGame() {
+            clearInterval(gameInterval);
+            message.style.display = "block";
+            message.innerText = "Game Over! \n Press Space to Start Again";
+            isGameRunning = false;
+        }
+
+        document.addEventListener("keydown", (e) => {
+            if (e.code === "Space") startGame();
+            if (e.key === "w" && direction !== "down") direction = "up";
+            if (e.key === "s" && direction !== "up") direction = "down";
+            if (e.key === "a" && direction !== "right") direction = "left";
+            if (e.key === "d" && direction !== "left") direction = "right";
+        });
+
+        message.style.display = "block";
+    </script>
+</body>
+</html>
