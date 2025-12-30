@@ -62,13 +62,16 @@
             padding: 10px;
             border-radius: 10px;
             text-align: center;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
         }
     </style>
 </head>
-<body>
+<body> 
     <h1>Snake Game</h1>
     <div id="game-container">
-        <div id="message">Press Space to Start</div>
+        <div id="message">Press Space or Tap to Start</div>
         <div id="score" style="position: absolute; top: 10px; left: 10px; font-size: 1.5em;">Score: 0</div>
     </div>
 
@@ -86,6 +89,13 @@
         let score = 0;
         let gameInterval = null;
         let isGameRunning = false;
+
+        // Touch handling variables
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchEndX = 0;
+        let touchEndY = 0;
+        const minSwipeDistance = 30;
 
         const levels = [
             [], // Level 1: No obstacles
@@ -201,7 +211,7 @@
         function endGame() {
             clearInterval(gameInterval);
             message.style.display = "block";
-            message.innerText = "Game Over! \n Press Space to Start Again";
+            message.innerText = "Game Over! \nPress Space or Tap to Start Again";
             isGameRunning = false;
         }
 
@@ -212,6 +222,65 @@
             if (e.key === "a" && direction !== "right") direction = "left";
             if (e.key === "d" && direction !== "left") direction = "right";
         });
+
+        // Touch event handlers
+        gameContainer.addEventListener("touchstart", (e) => {
+            e.preventDefault(); // Prevent scrolling
+            if (!isGameRunning) {
+                startGame();
+                return;
+            }
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        });
+
+        gameContainer.addEventListener("touchmove", (e) => {
+            e.preventDefault(); // Prevent scrolling
+        });
+
+        gameContainer.addEventListener("touchend", (e) => {
+            e.preventDefault();
+            if (!direction) return; // Don't change direction before game starts
+            
+            touchEndX = e.changedTouches[0].clientX;
+            touchEndY = e.changedTouches[0].clientY;
+            
+            handleSwipe();
+        });
+
+        function handleSwipe() {
+            const deltaX = touchEndX - touchStartX;
+            const deltaY = touchEndY - touchStartY;
+            const absDeltaX = Math.abs(deltaX);
+            const absDeltaY = Math.abs(deltaY);
+
+            // Check if swipe distance is sufficient
+            if (absDeltaX < minSwipeDistance && absDeltaY < minSwipeDistance) {
+                return;
+            }
+
+            // Determine swipe direction
+            if (absDeltaX > absDeltaY) {
+                // Horizontal swipe
+                if (deltaX > 0 && direction !== "left") {
+                    direction = "right";
+                } else if (deltaX < 0 && direction !== "right") {
+                    direction = "left";
+                }
+            } else {
+                // Vertical swipe
+                if (deltaY > 0 && direction !== "up") {
+                    direction = "down";
+                } else if (deltaY < 0 && direction !== "down") {
+                    direction = "up";
+                }
+            }
+        }
+
+        // Prevent body scrolling on touch devices
+        document.body.addEventListener("touchmove", (e) => {
+            e.preventDefault();
+        }, { passive: false });
 
         message.style.display = "block";
     </script>
